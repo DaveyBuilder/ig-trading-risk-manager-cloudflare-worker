@@ -16,25 +16,21 @@ export async function getClosedPositions(request, env, ctx) {
         });
            
         if (!loginResponse.ok) {
-            throw new Error(`HTTP error! status: ${closedPositionsResponse.status}`);
+            throw new Error(`Login failed with status: ${loginResponse.status}`);
         }
         
         const CST = loginResponse.headers.get('CST');
         const X_SECURITY_TOKEN = loginResponse.headers.get('X-SECURITY-TOKEN');
 
-        // START OF LOGIC
+        // START OF MAIN LOGIC
 
         const date = new Date();
         if (date.getDay() === 1) { // If it's Monday
             date.setDate(date.getDate() - 3); // Get the date of the previous Friday
-        } else if (date.getDay() === 0) { // If it's Sunday
-            date.setDate(date.getDate() - 4); // Get the date of the previous Friday
         } else {
             date.setDate(date.getDate() - 1); // Get the date of the previous day
         }
         const dateFrom = date.toISOString().split('T')[0];
-
-        console.log(dateFrom);
 
         // Fetch all closed positions
         const closedPositionsResponse = await fetch(`https://api.ig.com/gateway/deal/history/transactions?type=ALL_DEAL&from=${dateFrom}&pageSize=150`, {
@@ -54,7 +50,24 @@ export async function getClosedPositions(request, env, ctx) {
 
         const closedPositionsData = await closedPositionsResponse.json();
 
-        return closedPositionsData;
+        for (const transaction of closedPositionsData.transactions) {
+
+            const stmt = await env.DB.prepare(`
+                INSERT OR IGNORE INTO CLOSEDPOSITIONS (openDateUtc, closedDateUtc, instrumentName, size, profitAndLoss)
+                VALUES (?, ?, ?, ?, ?)
+            `);
+    
+            // Bind the values and execute the statement
+            await stmt.bind(
+                transaction.openDateUtc,
+                transaction.dateUtc,
+                transaction.instrumentName,
+                transaction.size,
+                transaction.profitAndLoss
+            ).run();
+        }
+
+        //return closedPositionsData;
 
     } catch (error) {
         console.error('An error occurred:', error);
