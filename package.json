@@ -1,5 +1,5 @@
 {
-  "name": "ig-trading-risk-manager-cloudflare-worker",
+  "name": "ig-riskmgmt-write-closed-positions-db-worker",
   "version": "0.0.0",
   "private": true,
   "scripts": {
